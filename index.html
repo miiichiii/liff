@@ -1,11 +1,12 @@
-&lt;!DOCTYPE html&gt;
-&lt;html lang=&quot;ja&quot;&gt;
-&lt;head&gt;
-    &lt;meta charset=&quot;UTF-8&quot;&gt;
-    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
-    &lt;title&gt;位置情報送信&lt;/title&gt;
-    &lt;script src=&quot;https://cdn.tailwindcss.com&quot;&gt;&lt;/script&gt;
-    &lt;style&gt;
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>位置情報送信</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
         /* A simple animation for the loading spinner */
         @keyframes spin {
             to { transform: rotate(360deg); }
@@ -14,11 +15,104 @@
             border-top-color: transparent;
             animation: spin 1s linear infinite;
         }
-    &lt;/style&gt;
-&lt;/head&gt;
-&lt;body class=&quot;bg-gray-100 flex items-center justify-center h-screen font-sans&quot;&gt;
-    &lt;div id=&quot;app&quot; class=&quot;text-center p-8 bg-white rounded-lg shadow-md max-w-sm w-full&quot;&gt;
-        &lt;div id=&quot;loading&quot;&gt;
-            &lt;div class=&quot;spinner w-12 h-12 border-4 border-blue-500 rounded-full mx-auto&quot;&gt;&lt;/div&gt;
-            &lt;p class=&quot;mt-4 text-gray-600&quot;&gt;準備中です...&lt;/p&gt;
-        &lt;/div&gt;
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen font-sans">
+    <div id="app" class="text-center p-8 bg-white rounded-lg shadow-md max-w-sm w-full">
+        <!-- Loading State -->
+        <div id="loading">
+            <div class="spinner w-12 h-12 border-4 border-blue-500 rounded-full mx-auto"></div>
+            <p class="mt-4 text-gray-600">準備中です...</p>
+        </div>
+
+        <!-- Ready State -->
+        <div id="ready" class="hidden">
+            <h1 class="text-2xl font-bold mb-2 text-gray-800">出席登録</h1>
+            <p class="mb-6 text-gray-600">下のボタンを押して、現在の位置情報を送信してください。</p>
+            <button id="sendLocationBtn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105">
+                現在地を送信して出席
+            </button>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="hidden">
+            <h1 class="text-xl font-bold text-red-600 mb-2">エラー</h1>
+            <p id="errorMessage" class="text-gray-700"></p>
+        </div>
+    </div>
+
+    <!-- LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script>
+        // --- Main execution ---
+        document.addEventListener('DOMContentLoaded', () => {
+            main();
+        });
+
+        async function main() {
+            try {
+                // 1. Initialize LIFF - Replace with your LIFF ID
+                await liff.init({ liffId: "2007710462-pABrKoAv" }); // ★先生のLIFF IDに設定済みです
+
+                // 2. Check if the user is logged in
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return; 
+                }
+
+                showReadyState();
+
+            } catch (err) {
+                console.error(err);
+                showErrorState(`LIFFの初期化に失敗しました: ${err.message}`);
+            }
+        }
+
+        function showReadyState() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('ready').classList.remove('hidden');
+            
+            const sendButton = document.getElementById('sendLocationBtn');
+            sendButton.addEventListener('click', handleSendLocation);
+        }
+
+        function showErrorState(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('ready').classList.add('hidden');
+            const errorDiv = document.getElementById('error');
+            const errorMessageP = document.getElementById('errorMessage');
+            errorMessageP.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        async function handleSendLocation() {
+            try {
+                // 3. Get the user's current location
+                const location = await liff.getLocation();
+
+                // 4. Send the location message back to the chat
+                await liff.sendMessages([
+                    {
+                        type: 'location',
+                        title: '現在地',
+                        address: '（GPS座標）',
+                        latitude: location.latitude,
+                        longitude: location.longitude
+                    }
+                ]);
+
+                // 5. Close the LIFF window
+                liff.closeWindow();
+
+            } catch (err) {
+                console.error(err);
+                if (err.code === 'PERMISSION_DENIED') {
+                    showErrorState('位置情報の取得が許可されませんでした。ブラウザまたはOSの設定で位置情報へのアクセスを許可してください。');
+                } else {
+                    showErrorState(`位置情報の取得または送信に失敗しました: ${err.message}`);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
